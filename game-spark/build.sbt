@@ -1,6 +1,5 @@
-import sun.security.tools.PathList
 
-name := "cassandra-kafka-streaming"
+name := "game-spark"
 
 version := "1.0"
 
@@ -18,8 +17,3 @@ libraryDependencies += ("org.apache.spark" %% "spark-streaming-kafka-0-10" % "2.
 
 libraryDependencies += "org.apache.kafka" % "kafka-clients" % "1.1.0"
 
-
-assemblyMergeStrategy in assembly := {
- case PathList("META-INF", xs @ _*) => MergeStrategy.discard
- case x => MergeStrategy.first
-}

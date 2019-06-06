@@ -18,12 +18,14 @@ import org.apache.spark.streaming.kafka010._
 import com.datastax.driver.core.Cluster
 import java.util.Date
 
+import scala.collection.immutable.Stream.StreamBuilder
+
 object KafkaSparkCassandra {
 
   def main(args: Array[String]) {
 
     // read the configuration file
-    val sparkConf = new SparkConf().setAppName("Game")
+    val sparkConf = new SparkConf().setAppName("game-spark")
 
     val cassandra_host = sparkConf.set("spark.cassandra.connection.host", "54.169.77.149")
                             .set("spark.executor.memory","1g")
@@ -47,9 +49,11 @@ object KafkaSparkCassandra {
     kafkaProps.load(new FileReader("kafka.properties"))
     val kafkaParams = kafkaProps.toMap[String, String]
 
-    kafkaProps.put("bootstrap.servers", "kafka1.joker.local:9092");
+    kafkaProps.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka1.joker.local:9092");
     kafkaProps.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     kafkaProps.put("value.serializer","org.apache.kafka.common.serialization.StringSerializer");
+    kafkaProps.put(StreamsConfig.REPLICATION_FACTOR_CONFIG, 3)
+    kafkaProps.put(StreamsConfig.producerPrefix(ProducerConfig.ACKS_CONFIG), "all")
 
     val producer = new KafkaProducer[String,String](kafkaProps);
     val record = new ProducerRecord[String, String](topic, "key", "value")
@@ -69,6 +73,20 @@ object KafkaSparkCassandra {
     rdd1.take(100).foreach(println)
     sc.stop()
 
-    System.exit(0)
+    val builder: KStream[String,String] = new StreamBuilder()
+    val source = builder.stream("gameTransaction").to("bigTopic")
+    import java.util.concurrent.CountDownLatch
+    val topology = builder.build
+
+    val streams = new KafkaStreams(topology, props)
+    val latch = new CountDownLatch(1)
+
+    try {
+      streams.start
+      latch.await()
+    } catch {
+      case e: Throwable =>
+        System.exit(1)
+    }
   }
 }
